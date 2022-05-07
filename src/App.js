@@ -1,24 +1,46 @@
-import logo from './logo.svg';
-import './App.css';
+import { Routes, Route, BrowserRouter } from "react-router-dom";
+import PrivateWrapper from "./components/PrivateWrapper";
 
+import { useAuth } from "./Context/AuthContext";
+import HomePage from "./Pages/HomePage";
+import LoginPage from "./Pages/LoginPage";
+import RegisterPage from "./Pages/RegisterPage";
+import Room from "./Pages/Room";
 function App() {
+  const { logOut } = useAuth();
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <button
+        onClick={() => {
+          logOut();
+        }}
+      >
+        Logout
+      </button>
+      <br />
+      <Routes>
+        <Route
+          exact
+          path="/"
+          element={
+            <PrivateWrapper>
+              <HomePage />
+            </PrivateWrapper>
+          }
+        />
+        <Route
+          exact
+          path="/room/:roomKey"
+          element={
+            <PrivateWrapper>
+              <Room />
+            </PrivateWrapper>
+          }
+        />
+        <Route exact path="/login" element={<LoginPage />} />
+        <Route exact path="/register" element={<RegisterPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
