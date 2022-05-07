@@ -27,6 +27,7 @@ function Room() {
   const { db } = useFirebase();
   const { currentUser } = useAuth();
   const pc = new RTCPeerConnection(servers);
+  console.log("1pc.currentRemoteDescription", pc.currentRemoteDescription);
 
   const localVideo = createRef(null);
   let localStream = null;
@@ -44,11 +45,17 @@ function Room() {
     getDoc(docRef).then((docSnap) => {
       if (docSnap.exists()) {
         // start video call bussiness
+        const docData = docSnap.data();
         setIsRoomExist(true);
-        console.log("room ton tai " + docSnap.data());
-        setRoom(docSnap.data());
+        console.log("room ton tai ", docData);
+        setRoom(docData);
+
         console.log("currentUser:", currentUser);
-        setIsRoomOwner(room?.createrUid === currentUser.uid);
+        setIsRoomOwner(docData?.createrUid === currentUser.uid);
+        console.log("docData?.createrUid", docData?.createrUid);
+        console.log("rcurrentUser.uid", currentUser.uid);
+        console.log(docData?.createrUid === currentUser.uid);
+        console.log(isRoomOwner);
       } else {
         // inform room not exist to user
         setIsRoomExist(false);
@@ -97,17 +104,12 @@ function Room() {
     );
 
     if (isRoomOwner) {
-      // callInput.value = callDoc.id; // show roomKey to user
-
-      // Get candidates for caller, save to db
       pc.onicecandidate = async (event) => {
-        console.log("sjet", event.candidate);
+        console.log("CALLER: onicecandidate ", event.candidate);
         if (event.candidate) {
           const ref = await addDoc(offerCandidates, event.candidate.toJSON());
-          console.log(ref.id);
         }
       };
-
       // Create offer
       const offerDescription = await pc.createOffer();
       await pc.setLocalDescription(offerDescription);
@@ -119,10 +121,15 @@ function Room() {
 
       await setDoc(roomDoc, { offer }, { merge: true });
 
-      // Listen for remote answer
+      // Listen for remote answer, unsublater
       onSnapshot(roomDoc, (snapshot) => {
         const data = snapshot.data();
+
+        console.log("CALLER: roomDoc change", data);
+        console.log("pc.currentRemoteDescription", pc.currentRemoteDescription);
+        // !pc.currentRemoteDescription &&?
         if (!pc.currentRemoteDescription && data?.answer) {
+          console.log("setRemoteDescription ", data.answer);
           const answerDescription = new RTCSessionDescription(data.answer);
           pc.setRemoteDescription(answerDescription);
         }
@@ -130,9 +137,11 @@ function Room() {
 
       // When answered, add candidate to peer connection
       onSnapshot(answerCandidates, (snapshot) => {
+        console.log("CALLER: answerCandidates change", snapshot.docChanges());
         snapshot.docChanges().forEach((change) => {
           if (change.type === "added") {
             const candidate = new RTCIceCandidate(change.doc.data());
+            console.log("CALLER: addIceCandidate ", candidate);
             pc.addIceCandidate(candidate);
           }
         });
@@ -140,15 +149,18 @@ function Room() {
 
       // hangupButton.disabled = false;
     } else {
+      // Get candidates for caller, save to db
       pc.onicecandidate = async (event) => {
+        console.log("ANSWER: onicecandidate ", event.candidate);
         if (event.candidate) {
-          await addDoc(answerCandidates, event.candidate.toJSON());
+          const ref = await addDoc(answerCandidates, event.candidate.toJSON());
         }
       };
 
       const roomData = (await getDoc(roomDoc)).data();
 
       const offerDescription = roomData.offer;
+      console.log("GET OFFER ", offerDescription);
       await pc.setRemoteDescription(
         new RTCSessionDescription(offerDescription)
       );
@@ -165,9 +177,10 @@ function Room() {
 
       onSnapshot(offerCandidates, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
-          console.log(change);
+          console.log("ANSWER: offerCandidates change: ", change);
           if (change.type === "added") {
             let data = change.doc.data();
+            console.log("ANSWER: addIceCandidate", data);
             pc.addIceCandidate(new RTCIceCandidate(data));
           }
         });
