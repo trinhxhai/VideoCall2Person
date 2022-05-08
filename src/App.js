@@ -9,39 +9,38 @@ import Room from "./Pages/Room";
 function App() {
   const { logOut } = useAuth();
   return (
-    <Room />
-    // <BrowserRouter>
-    //   {/* <button
-    //     onClick={() => {
-    //       logOut();
-    //     }}
-    //   >
-    //     Logout
-    //   </button>
-    //   <br />
-    //   <Routes>
-    //     <Route
-    //       exact
-    //       path="/"
-    //       element={
-    //         <PrivateWrapper>
-    //           <HomePage />
-    //         </PrivateWrapper>
-    //       }
-    //     />
-    //     <Route
-    //       exact
-    //       path="/room/:roomKey"
-    //       element={
-    //         // <PrivateWrapper>
-    //         <Room />
-    //         // </PrivateWrapper>
-    //       }
-    //     />
-    //     <Route exact path="/login" element={<LoginPage />} />
-    //     <Route exact path="/register" element={<RegisterPage />} />
-    //   </Routes> */}
-    // </BrowserRouter>
+    <BrowserRouter>
+      <button
+        onClick={() => {
+          logOut();
+        }}
+      >
+        Logout
+      </button>
+      <br />
+      <Routes>
+        <Route
+          exact
+          path="/"
+          element={
+            <PrivateWrapper>
+              <HomePage />
+            </PrivateWrapper>
+          }
+        />
+        <Route
+          exact
+          path="/room/:roomKey"
+          element={
+            <PrivateWrapper>
+              <Room />
+            </PrivateWrapper>
+          }
+        />
+        <Route exact path="/login" element={<LoginPage />} />
+        <Route exact path="/register" element={<RegisterPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
