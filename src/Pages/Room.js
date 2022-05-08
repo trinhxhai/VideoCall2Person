@@ -9,14 +9,19 @@ import { useAuth } from "../Context/AuthContext";
 
 const servers = {
   iceServers: [
+    // {
+    //   urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
+    // },
     {
-      urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
+      urls: "turn:turn.sondc.dev",
+      username: "test",
+      credential: "test123",
     },
   ],
   iceCandidatePoolSize: 10,
 };
 
-const host = "http://localhost:3000";
+const host = "https://morning-bastion-27437.herokuapp.com/";
 
 function Room() {
   const params = useParams();
@@ -54,11 +59,31 @@ function Room() {
         isOwner = docData?.createrUid === currentUser.uid;
         setIsRoomOwner(isOwner);
 
-        console.log("emit joinRoom");
-        socketRef.current.emit("joinRoom", {
-          roomKey,
-          isOwner,
-        });
+        navigator.mediaDevices
+          .getUserMedia({
+            video: true,
+            audio: true,
+          })
+          .then((resp) => {
+            const lcStream = resp;
+            setLocalStream(lcStream);
+            const rmtStream = new MediaStream();
+            setRemoteStream(rmtStream);
+            localVideo.current.srcObject = lcStream;
+            remoteVideo.current.srcObject = rmtStream;
+
+            console.log("afterset", {
+              localVideo,
+              remoteVideo,
+              lcStream,
+              rmtStream,
+            });
+            console.log("emit joinRoom");
+            socketRef.current.emit("joinRoom", {
+              roomKey,
+              isOwner,
+            });
+          });
 
         setUpSocket(isOwner);
       } else {
@@ -122,6 +147,7 @@ function Room() {
       console.log("ownerStart", isOwner);
       if (isOwner) {
         setUpOwnerConnection().then((offer) => {
+          console.log("ownerStart send", offer);
           socketRef.current.emit("upOffer", { isOwner, roomKey, offer });
         });
       } else {
@@ -136,11 +162,13 @@ function Room() {
       }
       if (isRoomOwner) {
         const answerDescription = new RTCSessionDescription(offer);
+        console.log("OWNER SET setRemoteDescription");
         pc.setRemoteDescription(answerDescription);
         socketRef.current.emit("getOtherCandidates", { isOwner, roomKey });
       } else {
         // recreate p
         setUpGuestConnection(offer).then((guestOffer) => {
+          console.log("GUEST upOffer", guestOffer);
           socketRef.current.emit("upOffer", {
             isOwner,
             roomKey,
@@ -156,7 +184,9 @@ function Room() {
     socketRef.current.on("downOtherCandidates", (candidates) => {
       console.log("downOtherCandidates", candidates);
       candidates.forEach((candidate) => {
-        pc.addIceCandidate(candidate);
+        if (pc != null && pc.remoteDescription != null) {
+          pc.addIceCandidate(candidate);
+        }
       });
     });
 
@@ -165,22 +195,13 @@ function Room() {
       // re-create peer-to-peer connection and send to socket to update
     });
 
-    socketRef.current.on("getPcData", ({ offer, candidates }) => {
-      console.log("client: [getPcData]:", offer, candidates);
-      candidates.forEach((candidate) => {
-        pc.addIceCandidate(candidate);
-      });
-      const answerDescription = new RTCSessionDescription(offer);
-      pc.setRemoteDescription(answerDescription);
-    });
-
     socketRef.current.on("message", (data) => {
       console.log("from server [message]:", data);
     });
 
     socketRef.current.on("otherUpdateCandidate", (candidate) => {
-      if (pc != null) {
-        pc.addIceCandidate(candidate);
+      if (pc != null && pc.remoteDescription != null) {
+        // pc.addIceCandidate(candidate);
       }
     });
   };
@@ -245,6 +266,7 @@ function Room() {
       type: offerDescription.type,
     };
 
+    console.log("OWNER RECREATE CONNECTION", offer);
     return offer;
 
     // hangupButton.disabled = false;
@@ -298,7 +320,7 @@ function Room() {
       sdp: offerDescription.sdp,
       type: offerDescription.type,
     };
-
+    console.log("GUEST RECREATE CONNECTION", offer);
     return offer;
 
     // hangupButton.disabled = false;
