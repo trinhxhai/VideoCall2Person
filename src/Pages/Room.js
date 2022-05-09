@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import "./Room.css";
 import { useParams } from "react-router-dom";
-
+import { FaFileMedical } from "react-icons/fa";
 import socketIOClient from "socket.io-client";
 
 import { doc, getDoc } from "firebase/firestore";
@@ -9,19 +10,16 @@ import { useAuth } from "../Context/AuthContext";
 
 const servers = {
   iceServers: [
-    // {
-    //   urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
-    // },
     {
       urls: "turn:turn.sondc.dev",
       username: "test",
       credential: "test123",
     },
   ],
-  iceCandidatePoolSize: 10,
 };
 
-const host = "https://morning-bastion-27437.herokuapp.com/";
+// const host = "https://morning-bastion-27437.herokuapp.com/";
+const host = "http://localhost:3000/";
 
 function Room() {
   const params = useParams();
@@ -35,7 +33,6 @@ function Room() {
 
   const socketRef = useRef();
 
-  const [isRoomExist, setIsRoomExist] = useState(true);
   const [isRoomOwner, setIsRoomOwner] = useState(false);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -53,7 +50,7 @@ function Room() {
       if (docSnap.exists()) {
         // start video call bussiness
         const docData = docSnap.data();
-        setIsRoomExist(true);
+
         setRoom(docData);
         // check current user is owner of room
         isOwner = docData?.createrUid === currentUser.uid;
@@ -65,6 +62,7 @@ function Room() {
             audio: true,
           })
           .then((resp) => {
+            console.log("empty UseEffect navigator getmedia");
             const lcStream = resp;
             setLocalStream(lcStream);
             const rmtStream = new MediaStream();
@@ -84,18 +82,17 @@ function Room() {
               isOwner,
             });
           });
+        //
 
         setUpSocket(isOwner);
       } else {
-        // inform room not exist to user
-        setIsRoomExist(false);
         console.log("khong ton tai phong");
       }
     });
   }, []);
 
   useEffect(() => {
-    console.log("useEffect", { localVideo, remoteVideo });
+    console.log("useEffect2", { localVideo, remoteVideo });
     if (localVideo === null || remoteVideo === null) {
       return;
     }
@@ -107,6 +104,7 @@ function Room() {
         audio: true,
       })
       .then((resp) => {
+        console.log("empty useEffect2 navigator getmedia");
         const lcStream = resp;
         setLocalStream(lcStream);
         const rmtStream = new MediaStream();
@@ -131,11 +129,19 @@ function Room() {
     if (localVideo === null) {
       return;
     }
-    localVideo.current.srcObject = localStream;
+    if (localVideo.current.srcObject !== localStream) {
+      console.log("re-set localVideo.current.srcObject = localStream;");
+      console.log("olcalVideo.current.srcObject", localVideo.current.srcObject);
+      localVideo.current.srcObject = localStream;
+    }
     if (remoteVideo === null) {
       return;
     }
-    remoteVideo.current.srcObject = remoteStream;
+    if (remoteVideo.current.srcObject !== remoteStream) {
+      console.log("re-set localVideo.current.srcObject = localStream;");
+      remoteVideo.current.srcObject = remoteStream;
+      console.log("re-set localVideo.current.srcObject = localStream;");
+    }
 
     setUpSocket(isRoomOwner);
   });
@@ -164,6 +170,7 @@ function Room() {
         const answerDescription = new RTCSessionDescription(offer);
         console.log("OWNER SET setRemoteDescription");
         pc.setRemoteDescription(answerDescription);
+
         socketRef.current.emit("getOtherCandidates", { isOwner, roomKey });
       } else {
         // recreate p
@@ -204,27 +211,8 @@ function Room() {
         // pc.addIceCandidate(candidate);
       }
     });
-  };
 
-  const turnOnCamera = () => {
-    navigator.mediaDevices
-      .getUserMedia({
-        video: true,
-        audio: true,
-      })
-      .then((resp) => {
-        localStream = resp;
-
-        console.log("set localStream");
-
-        remoteStream = new MediaStream();
-        console.log("localVideo.current", localVideo.current);
-        console.log("remoteVideo.current", remoteVideo.current);
-
-        return resp;
-      });
-
-    return;
+    setUpSocketForMessage();
   };
 
   const setUpOwnerConnection = async () => {
@@ -325,12 +313,84 @@ function Room() {
 
     // hangupButton.disabled = false;
   };
+  // SENDING MESSAGES AND FILES
 
-  const VideoCall = () => {
-    return (
-      <>
+  // Set up for message
+  const setUpSocketForMessage = () => {
+    const socket = socketRef.current;
+
+    socket.on("getOtherMessage", ({ message }) => {
+      console.log("Socket getOtherMessage: ", message);
+      setMessages((prev) => {
+        return [...prev, message];
+      });
+    });
+  };
+
+  const [message, setMessage] = useState("");
+  const [file, setFile] = useState(null);
+  const [messages, setMessages] = useState([]);
+
+  const onMessageChange = (e) => {
+    e.preventDefault();
+    setMessage(e.target.value);
+  };
+
+  const onChangeFile = (e) => {
+    const file = document.querySelector("input[type=file]").files[0];
+    const reader = new FileReader();
+
+    reader.addEventListener(
+      "load",
+      function () {
+        setFile({ str64: reader.result, fileName: file.name });
+      },
+      false
+    );
+
+    if (file) {
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onClickSend = (e) => {
+    const messageContent = message;
+    console.log("messageContent", messageContent);
+    console.log("socketRef.current", socketRef.current);
+    socketRef.current.emit("sendOtherMessage", {
+      roomKey,
+      message: {
+        sender: "Other",
+        text: messageContent,
+        fileStr64: file?.str64,
+        fileName: file?.fileName,
+      },
+    });
+
+    setMessages((pre) => {
+      return [
+        ...pre,
+        {
+          sender: "You",
+          text: messageContent,
+          fileStr64: file?.str64,
+          fileName: file?.fileName,
+        },
+      ];
+    });
+
+    setMessage("");
+    setFile(null);
+  };
+
+  return (
+    <>
+      <div>
+        <h1>Room key:{" " + roomKey}</h1>
+      </div>
+      <h3>{isRoomOwner ? "Owner" : "Guest"}</h3>
+      <div className="stream-container">
         <div>
-          <h2>{isRoomOwner ? "Owner" : "Guest"}</h2>
           <div style={{ display: "inline-block" }}>
             <h3>Local Stream</h3>
             <video
@@ -339,36 +399,73 @@ function Room() {
               playsInline
               ref={localVideo}
               style={{
-                width: "40vw",
-                height: "30vw",
-                margin: "2rem",
-                background: "#2c3e50",
-              }}
-            ></video>
-          </div>
-          <div style={{ display: "inline-block" }}>
-            <h3>Remote Stream</h3>
-            <video
-              id="remoteVideo"
-              playsInline
-              autoPlay
-              ref={remoteVideo}
-              style={{
-                width: "40vw",
-                height: "30vw",
-                margin: "2rem",
+                width: "40rem",
+                height: "30rem",
                 background: "#2c3e50",
               }}
             ></video>
           </div>
         </div>
-        <button onClick={turnOnCamera}> Turn on cammera</button>
-      </>
-    );
-  };
-  return (
-    <>
-      <VideoCall />
+        <div style={{ marginLeft: "2rem" }}>
+          <h3>Remote Stream</h3>
+          <video
+            id="remoteVideo"
+            playsInline
+            autoPlay
+            ref={remoteVideo}
+            style={{
+              width: "40rem",
+              height: "30rem",
+              background: "#2c3e50",
+            }}
+            // FaFileMedical
+          ></video>
+        </div>
+        <div className="chat-container">
+          <div className="messages-container">
+            {messages.map((message) => {
+              return (
+                <div className="message">
+                  <div className="message-sender">{message.sender}</div>
+                  <div className="message-content">{message.text}</div>
+                  <div className="message-attachment">
+                    {message.fileStr64 && (
+                      <a download={message.fileName} href={message.fileStr64}>
+                        {message.fileName}(click to download)
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="controls-container">
+            <input
+              type="text"
+              className="message-input"
+              value={message}
+              onChange={(e) => {
+                onMessageChange(e);
+              }}
+            />
+            <div className="controls">
+              <label htmlFor="file">
+                <FaFileMedical size={35} />
+              </label>
+              <button onClick={onClickSend}>Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <input
+        type="file"
+        id="file"
+        onChange={(e) => {
+          onChangeFile(e);
+        }}
+        style={{ display: "none" }}
+      />
     </>
   );
 }

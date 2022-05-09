@@ -1,18 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import { doc, setDoc } from "firebase/firestore";
 import { useFirebase } from "../Context/FirebaseContext";
 import { useAuth } from "../Context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 function RegisterPage() {
   const { db } = useFirebase();
-  const { signUp } = useAuth();
+  const { currentUser, signUp } = useAuth();
+  const navigate = useNavigate();
   const [user, setUser] = useState({
     name: "",
     email: "",
     password: "",
     repassword: "",
   });
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/");
+    }
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,12 +38,13 @@ function RegisterPage() {
             name: user.name,
           }).then((e) => {
             console.log("resgister successful " + userCredential);
+            navigate("/");
           });
         })
         .catch((error) => {
           const errorCode = error.code;
           const errorMessage = error.message;
-          console.log(error);
+          alert(error);
           // ..
         });
     }
@@ -73,48 +81,65 @@ function RegisterPage() {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="name">name</label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            value={user.name}
-            onChange={handleInputChange}
-          />
-        </div>
-        <div>
-          <label htmlFor="email">email</label>
-          <input
-            type="text"
-            name="email"
-            id="email"
-            value={user.email}
-            onChange={handleInputChange}
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            name="password"
-            id="password"
-            value={user.password}
-            onChange={handleInputChange}
-          />
-        </div>
-        <div>
-          <label htmlFor="repassword">Repassword</label>
-          <input
-            type="password"
-            name="repassword"
-            id="repassword"
-            value={user.repassword}
-            onChange={handleInputChange}
-          />
-        </div>
-
-        <button type="submit">Login</button>
+        <table>
+          <tr>
+            <td>
+              <label htmlFor="name">Name:</label>
+            </td>
+            <td>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                value={user.name}
+                onChange={handleInputChange}
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label htmlFor="email">Email:</label>
+            </td>
+            <td>
+              <input
+                type="text"
+                name="email"
+                id="email"
+                value={user.email}
+                onChange={handleInputChange}
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label htmlFor="password">Password:</label>
+            </td>
+            <td>
+              <input
+                type="password"
+                name="password"
+                id="password"
+                value={user.password}
+                onChange={handleInputChange}
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label htmlFor="repassword">Repassword:</label>
+            </td>
+            <td>
+              <input
+                type="password"
+                name="repassword"
+                id="repassword"
+                value={user.repassword}
+                onChange={handleInputChange}
+              />
+            </td>
+          </tr>
+        </table>
+        <button type="submit">Register</button>
       </form>
     </>
   );

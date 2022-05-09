@@ -1,5 +1,7 @@
-import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { Routes, Route, BrowserRouter, Link } from "react-router-dom";
 import PrivateWrapper from "./components/PrivateWrapper";
+
+import "./App.css";
 
 import { useAuth } from "./Context/AuthContext";
 import HomePage from "./Pages/HomePage";
@@ -7,17 +9,32 @@ import LoginPage from "./Pages/LoginPage";
 import RegisterPage from "./Pages/RegisterPage";
 import Room from "./Pages/Room";
 function App() {
-  const { logOut } = useAuth();
+  const { currentUser, logOut } = useAuth();
+
   return (
     <BrowserRouter>
-      <button
-        onClick={() => {
-          logOut();
-        }}
-      >
-        Logout
-      </button>
-      <br />
+      <div className="header">
+        {currentUser ? (
+          <>
+            <span className="nav-container">
+              <Link to="/">Home</Link>
+            </span>
+            <button
+              onClick={() => {
+                logOut();
+              }}
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <span className="nav-container">
+            <Link to="/">Home</Link>
+            <Link to="/login">Login</Link>
+            <Link to="/register">Register</Link>
+          </span>
+        )}
+      </div>
       <Routes>
         <Route
           exact
