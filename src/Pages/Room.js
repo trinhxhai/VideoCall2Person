@@ -18,8 +18,8 @@ const servers = {
   ],
 };
 
-// const host = "https://morning-bastion-27437.herokuapp.com/";
-const host = "http://localhost:3000/";
+const host = "https://morning-bastion-27437.herokuapp.com/";
+// const host = "http://localhost:3000/";
 
 function Room() {
   const params = useParams();
