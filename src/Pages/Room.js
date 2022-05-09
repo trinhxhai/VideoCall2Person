@@ -130,21 +130,17 @@ function Room() {
       return;
     }
     if (localVideo.current.srcObject !== localStream) {
-      console.log("re-set localVideo.current.srcObject = localStream;");
-      console.log("olcalVideo.current.srcObject", localVideo.current.srcObject);
       localVideo.current.srcObject = localStream;
     }
     if (remoteVideo === null) {
       return;
     }
     if (remoteVideo.current.srcObject !== remoteStream) {
-      console.log("re-set localVideo.current.srcObject = localStream;");
       remoteVideo.current.srcObject = remoteStream;
-      console.log("re-set localVideo.current.srcObject = localStream;");
     }
 
     setUpSocket(isRoomOwner);
-  });
+  }, [remoteStream, localStream]);
 
   const setUpSocket = (isOwner) => {
     // socket.removeAllListeners();
@@ -207,8 +203,9 @@ function Room() {
     });
 
     socketRef.current.on("otherUpdateCandidate", (candidate) => {
+      console.log("update other candidate");
       if (pc != null && pc.remoteDescription != null) {
-        // pc.addIceCandidate(candidate);
+        pc.addIceCandidate(candidate);
       }
     });
 
@@ -220,6 +217,9 @@ function Room() {
       return;
     }
     console.log("setUpOwnerConnection", { localStream, remoteStream });
+
+    // const rmStream = new MediaStream();
+    // setRemoteStream(rmStream);
 
     pc = new RTCPeerConnection(servers);
 
@@ -269,6 +269,9 @@ function Room() {
       localStream,
       remoteStream,
     });
+
+    // const rmStream = new MediaStream();
+    // setRemoteStream(rmStream);
 
     pc = new RTCPeerConnection(servers);
 
