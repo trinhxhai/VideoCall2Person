@@ -37,8 +37,6 @@ function Room() {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
 
-  const [room, setRoom] = useState(null);
-
   console.log("render", { localVideo, remoteVideo, localStream, remoteStream });
 
   useEffect(() => {
@@ -51,7 +49,6 @@ function Room() {
         // start video call bussiness
         const docData = docSnap.data();
 
-        setRoom(docData);
         // check current user is owner of room
         isOwner = docData?.createrUid === currentUser.uid;
         setIsRoomOwner(isOwner);
@@ -82,11 +79,10 @@ function Room() {
               isOwner,
             });
           });
-        //
 
         setUpSocket(isOwner);
       } else {
-        console.log("khong ton tai phong");
+        alert("Phòng không tồn tại");
       }
     });
   }, []);
@@ -143,23 +139,29 @@ function Room() {
   }, [remoteStream, localStream]);
 
   const setUpSocket = (isOwner) => {
-    // socket.removeAllListeners();
+    // this function can be called mutiple time, clear to prevent listen mutiple time
     socketRef.current.removeAllListeners();
+
+    // when 2 people in room, start recreate connection
     socketRef.current.on("ownerStart", (message) => {
       console.log("ownerStart", isOwner);
       if (isOwner) {
         setUpOwnerConnection().then((offer) => {
+          // send offer to guest user
           console.log("ownerStart send", offer);
           socketRef.current.emit("upOffer", { isOwner, roomKey, offer });
         });
       } else {
-        console.log("some thing wrong");
+        // this signal only send to owner user, if not some thing wrong
+        console.error("ownerStart only be sent to owner user!");
       }
     });
 
+    // get offer from other user
     socketRef.current.on("downOffer", (offer) => {
-      console.log("from server [downOffer]:", { isRoomOwner, offer });
+      console.log("from server [downOffer]:", { offer });
       if (offer === null) {
+        console.error("Offer cant be null!");
         return;
       }
       if (isRoomOwner) {
@@ -169,7 +171,6 @@ function Room() {
 
         socketRef.current.emit("getOtherCandidates", { isOwner, roomKey });
       } else {
-        // recreate p
         setUpGuestConnection(offer).then((guestOffer) => {
           console.log("GUEST upOffer", guestOffer);
           socketRef.current.emit("upOffer", {
@@ -180,10 +181,9 @@ function Room() {
           socketRef.current.emit("getOtherCandidates", { isOwner, roomKey });
         });
       }
-
-      // re-create peer-to-peer connection and send to socket to update
     });
 
+    // get other candidates
     socketRef.current.on("downOtherCandidates", (candidates) => {
       console.log("downOtherCandidates", candidates);
       candidates.forEach((candidate) => {
@@ -198,10 +198,7 @@ function Room() {
       // re-create peer-to-peer connection and send to socket to update
     });
 
-    socketRef.current.on("message", (data) => {
-      console.log("from server [message]:", data);
-    });
-
+    // update candidater cause by other's pc.onicecandidate
     socketRef.current.on("otherUpdateCandidate", (candidate) => {
       console.log("update other candidate");
       if (pc != null && pc.remoteDescription != null) {
@@ -209,9 +206,15 @@ function Room() {
       }
     });
 
+    // for message, debug
+    socketRef.current.on("message", (data) => {
+      console.log("from server [message]:", data);
+    });
+
     setUpSocketForMessage();
   };
 
+  // Recreate PeerToPeer Connection for Owner User
   const setUpOwnerConnection = async () => {
     if (localStream === null || remoteStream === null) {
       return;
@@ -235,6 +238,7 @@ function Room() {
       });
     };
 
+    // emit to server -> send candidate to guest user
     pc.onicecandidate = (event) => {
       console.log("OWNER: onicecandidate ", event.candidate);
       if (event.candidate) {
@@ -256,10 +260,9 @@ function Room() {
 
     console.log("OWNER RECREATE CONNECTION", offer);
     return offer;
-
-    // hangupButton.disabled = false;
   };
 
+  // Recreate PeerToPeer Connection for Guest User
   const setUpGuestConnection = async (ownerOffer) => {
     if (localStream === null || remoteStream === null) {
       return;
@@ -287,8 +290,9 @@ function Room() {
       });
     };
 
+    // emit to socket -> send candidate to other user
     pc.onicecandidate = (event) => {
-      console.log("GUEST: onicecandidate ", event.candidate);
+      // console.log("GUEST: onicecandidate ", event.candidate);
       if (event.candidate) {
         socketRef.current.emit("updateCandidate", {
           roomKey,
@@ -311,13 +315,12 @@ function Room() {
       sdp: offerDescription.sdp,
       type: offerDescription.type,
     };
+
     console.log("GUEST RECREATE CONNECTION", offer);
     return offer;
-
-    // hangupButton.disabled = false;
   };
-  // SENDING MESSAGES AND FILES
 
+  // SENDING MESSAGES AND FILES
   // Set up for message
   const setUpSocketForMessage = () => {
     const socket = socketRef.current;
